@@ -12,6 +12,8 @@ import { InsightsModule } from './insights/insights.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CurrencyModule } from './currency/currency.module';
+import { BusinessModule } from './business/business.module';
+import { WalletsModule } from './wallets/wallets.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -39,6 +41,8 @@ import configuration from './config/configuration';
     CategoriesModule,
     TransactionsModule,
     CurrencyModule,
+    BusinessModule,
+    WalletsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -34,7 +34,7 @@
     "axios": "^1.13.6",
     "bullmq": "^5.70.1",
     "class-transformer": "^0.5.1",
-    "class-validator": "^0.15.1",
+    "class-validator": "^0.14.1",
     "fast-xml-parser": "^5.4.1",
     "ioredis": "^5.10.0",
     "multer": "^2.1.0",
