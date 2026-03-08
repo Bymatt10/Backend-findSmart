@@ -2,19 +2,21 @@ pipeline {
     agent any
 
     environment {
-        // Asegúrate de crear esta credencial en Jenkins con el ID 'findsmart-backend-env'
+        // Esta ID debe coincidir con la que creaste en el paso anterior
         ENV_FILE = credentials('findsmart-backend-env')
     }
 
     stages {
         stage('Checkout') {
             steps {
+                // Detecta automáticamente la rama y configuración del Job
                 checkout scm
             }
         }
 
         stage('Preparar Configuración') {
             steps {
+                // Inyectamos el .env secreto
                 sh 'cp $ENV_FILE .env'
             }
         }
@@ -22,7 +24,7 @@ pipeline {
         stage('Desplegar API') {
             steps {
                 script {
-                    // Verificamos compatibilidad de comandos docker
+                    // Verificamos si usar docker compose o docker-compose
                     def dockerCmd = sh(script: "docker compose version", returnStatus: true) == 0 ? "docker compose" : "docker-compose"
                     sh "${dockerCmd} up -d --build"
                 }
@@ -32,10 +34,13 @@ pipeline {
 
     post {
         always {
-            sh 'rm -f .env'
+            // Aseguramos que la limpieza ocurra dentro del espacio de trabajo
+            node('built-in' || 'master') {
+                sh 'rm -f .env'
+            }
         }
         success {
-            echo '¡Backend de FindSmart desplegado en el puerto 4000!'
+            echo '¡Backend de FindSmart (Domify) desplegado correctamente!'
         }
     }
 }
