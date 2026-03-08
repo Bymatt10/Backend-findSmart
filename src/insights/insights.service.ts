@@ -111,6 +111,18 @@ export class InsightsService {
             .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
             .order('date', { ascending: false });
 
+        // 3. Fetch wallets
+        const { data: wallets } = await client
+            .from('wallets')
+            .select('id, name, type, bank_name, currency, balance')
+            .eq('user_id', userId);
+
+        // 4. Fetch categories (system + user)
+        const { data: categories } = await client
+            .from('categories')
+            .select('id, name')
+            .or(`is_system.eq.true,user_id.eq.${userId}`);
+
         // Group spending by currency
         const spendingByCurrency: Record<string, number> = {};
         const incomeByCurrency: Record<string, number> = {};
@@ -148,12 +160,73 @@ export class InsightsService {
                     date: t.date,
                     category: (t.category as any)?.name || 'Sin categoría'
                 }))
-            }
+            },
+            userWallets: wallets || [],
+            userCategories: categories || [],
         };
 
-        // 3. Request reply from gemini
-        const reply = await this.geminiService.chatWithFinancialCoach(body.message, body.history, userDataContext);
+        // Request structured reply from gemini
+        let replyText = 'Lo siento, hubo un error procesando tu solicitud.';
+        try {
+            const rawReply = await this.geminiService.chatWithFinancialCoach(body.message, body.history, userDataContext);
+            const trimmedReply = rawReply.trim();
+            console.log('[InsightsService] AI Reply (trimmed):', trimmedReply.substring(0, 100));
 
-        return { reply };
+            let aiResponse;
+            if (trimmedReply.startsWith('{') || trimmedReply.startsWith('```')) {
+                const clean = trimmedReply.replace(/^```(json)?\n?/i, '').replace(/```$/i, '').trim();
+                try {
+                    aiResponse = JSON.parse(clean);
+                } catch (e) {
+                    console.error('[InsightsService] Failed to parse JSON:', e);
+                    aiResponse = { reply: rawReply };
+                }
+            } else {
+                console.log('[InsightsService] Reply is not JSON');
+                aiResponse = { reply: rawReply };
+            }
+
+            replyText = aiResponse.reply || rawReply;
+
+            // Handle transaction creation intent
+            if (aiResponse.action?.type === 'CREATE_TRANSACTION') {
+                const { amount, description, wallet_id, category_id, type } = aiResponse.action.data;
+                console.log('[InsightsService] CREATE_TRANSACTION params:', aiResponse.action.data);
+
+                if (wallet_id && category_id && amount) {
+                    const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+                    const wallet = wallets?.find(w => w.id === wallet_id);
+                    if (wallet) {
+                        const { error: insertError } = await client.from('transactions').insert({
+                            user_id: userId,
+                            wallet_id,
+                            category_id,
+                            amount: finalAmount,
+                            original_currency: wallet.currency,
+                            exchange_rate: 1, // Assume 1 for now or handle cross-currency in future
+                            date: new Date().toISOString().split('T')[0],
+                            description,
+                        });
+
+                        if (insertError) {
+                            console.error('[InsightsService] DB Insert Error:', insertError);
+                        } else {
+                            // Update wallet balance
+                            const newBalance = Number(wallet.balance) + finalAmount;
+                            await client.from('wallets').update({ balance: newBalance }).eq('id', wallet_id);
+                            replyText = replyText + '\n\n✅ ¡Transacción registrada exitosamente!';
+                        }
+                    } else {
+                        console.error('[InsightsService] Wallet not found:', wallet_id);
+                    }
+                } else {
+                    console.error('[InsightsService] Missing required fields. wallet_id:', wallet_id, 'category_id', category_id, 'amount', amount);
+                }
+            }
+        } catch (error) {
+            console.error('[InsightsService] Error handling chat message:', error);
+        }
+
+        return { reply: replyText };
     }
 }
