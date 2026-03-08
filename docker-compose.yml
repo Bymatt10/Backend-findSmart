@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    image: findsmart-api:latest
+    container_name: findsmart-api
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    restart: always
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: findsmart-api-redis
+    # ports:
+    #   - "6380:6379" 
+    restart: unless-stopped
+    volumes:
+      - redis_api_data:/data
+
+volumes:
+  redis_api_data:
