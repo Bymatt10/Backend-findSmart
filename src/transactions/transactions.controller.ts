@@ -20,8 +20,14 @@ export class TransactionsController {
     }
 
     @Get()
-    async getTransactions(@CurrentUser() user: User, @Query('limit') limit = 50, @Query('offset') offset = 0) {
-        return this.transactionsService.findAll(user.id, limit, offset);
+    async getTransactions(
+        @CurrentUser() user: User, 
+        @Query('limit') limit = 50, 
+        @Query('offset') offset = 0,
+        @Query('month') month?: string,
+        @Query('year') year?: string
+    ) {
+        return this.transactionsService.findAll(user.id, limit, offset, month, year);
     }
 
     @Get(':id')

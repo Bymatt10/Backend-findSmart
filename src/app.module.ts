@@ -14,6 +14,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { CurrencyModule } from './currency/currency.module';
 import { BusinessModule } from './business/business.module';
 import { WalletsModule } from './wallets/wallets.module';
+import { RemindersModule } from './reminders/reminders.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -43,6 +44,7 @@ import configuration from './config/configuration';
     CurrencyModule,
     BusinessModule,
     WalletsModule,
+    RemindersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

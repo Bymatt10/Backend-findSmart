@@ -61,15 +61,27 @@ export class TransactionsService {
         return data;
     }
 
-    async findAll(userId: string, limit = 50, offset = 0) {
+    async findAll(userId: string, limit = 50, offset = 0, month?: string, year?: string) {
         const client = this.supabaseService.getClient();
-        const { data, error } = await client
+
+        let query = client
             .from('transactions')
             .select(`
                 *,
                 categories (id, name, icon)
             `)
-            .eq('user_id', userId)
+            .eq('user_id', userId);
+
+        if (year && month) {
+            const y = typeof year === 'string' ? parseInt(year) : year;
+            const m = typeof month === 'string' ? parseInt(month) : month;
+            const lastDay = new Date(y, m, 0).getDate();
+            const startStr = `${y}-${String(m).padStart(2, '0')}-01`;
+            const endStr = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            query = query.gte('date', startStr).lte('date', endStr);
+        }
+
+        const { data, error } = await query
             .order('date', { ascending: false })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
@@ -143,8 +155,16 @@ export class TransactionsService {
     async getSummary(userId: string, month?: number, year?: number) {
         const client = this.supabaseService.getClient();
 
-        // MVP: Simple select all for the month/year period and aggregate in code
         let query = client.from('transactions').select('amount, categories(name)').eq('user_id', userId);
+
+        if (year && month) {
+            const y = typeof year === 'string' ? parseInt(year) : year;
+            const m = typeof month === 'string' ? parseInt(month) : month;
+            const lastDay = new Date(y, m, 0).getDate();
+            const startStr = `${y}-${String(m).padStart(2, '0')}-01`;
+            const endStr = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            query = query.gte('date', startStr).lte('date', endStr);
+        }
 
         // This is a simplified fetch, ideally Supabase RPC would be better here for large datasets,
         // but since we only have limit filters, let's pull all for the context.
